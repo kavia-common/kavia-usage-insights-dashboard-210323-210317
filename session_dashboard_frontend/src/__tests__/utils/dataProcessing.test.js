@@ -10,7 +10,8 @@ import {
   calculateUsageByTeam,
   calculateUsageByUser,
   calculateWeekOverWeekTrends,
-  groupSessionsByDate
+  groupSessionsByDate,
+  getWeeklyTrendSeriesByUser
 } from '../../utils/dataProcessing';
 
 const mockSessions = [

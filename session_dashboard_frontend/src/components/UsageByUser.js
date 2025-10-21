@@ -8,8 +8,12 @@
 // ============================================================================
 
 import React, { useState } from 'react';
-import { calculateUsageByUser } from '../utils/dataProcessing';
+import { calculateUsageByUser, getWeeklyTrendSeriesByUser } from '../utils/dataProcessing';
 import '../styles/Visualizations.css';
+import ChartCard from './ChartCard';
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid
+} from 'recharts';
 
 // PUBLIC_INTERFACE
 /**
@@ -25,6 +29,7 @@ import '../styles/Visualizations.css';
 const UsageByUser = ({ data }) => {
   const [sortBy, setSortBy] = useState('sessionCount');
   const userStats = calculateUsageByUser(data);
+  const { series: weeklySeries, keys: userKeys } = getWeeklyTrendSeriesByUser(data, 5, 8);
 
   // Sort users based on selected criteria
   const sortedUsers = [...userStats].sort((a, b) => {
@@ -50,6 +55,45 @@ const UsageByUser = ({ data }) => {
         <h2 className="viz-title">Usage by User</h2>
         <p className="viz-subtitle">Individual user activity and metrics</p>
       </div>
+
+      <ChartCard
+        title="Weekly User Usage (Top 5 Users • Last 8 Weeks)"
+        subtitle="Line chart of weekly session counts per top users. Hover for details."
+      >
+        {weeklySeries && weeklySeries.length > 0 && userKeys.length > 0 ? (
+          <div className="chart-responsive" data-testid="user-trend-chart">
+            <ResponsiveContainer>
+              <LineChart data={weeklySeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="4 4" />
+                <XAxis dataKey="weekStart" tick={{ fill: '#64748b', fontSize: 12 }} />
+                <YAxis allowDecimals={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 8 }}
+                  labelStyle={{ color: '#111827', fontWeight: 600 }}
+                />
+                <Legend />
+                {userKeys.map((k, idx) => {
+                  const palette = ['#3b82f6', '#06b6d4', '#64748b', '#10b981', '#f59e0b', '#ef4444'];
+                  return (
+                    <Line
+                      key={k}
+                      type="monotone"
+                      dataKey={k}
+                      name={k}
+                      stroke={palette[idx % palette.length]}
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  );
+                })}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div role="note" style={{ color: '#64748b' }}>No data available for weekly user trends.</div>
+        )}
+      </ChartCard>
 
       {/* Sort Controls */}
       <div className="sort-controls">

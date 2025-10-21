@@ -98,41 +98,63 @@
    const now = new Date();
    const sessions = [];
    const weekdayWeights = [0.6, 0.9, 1.2, 1.3, 1.1, 0.5, 0.4]; // Sun..Sat
- 
+
+   // Compute the Monday week index for each day to apply a progressive weekly multiplier
+   const getWeekStart = (d) => {
+     const ws = new Date(d);
+     ws.setHours(0, 0, 0, 0);
+     const dd = (ws.getDay() + 6) % 7; // Monday=0
+     ws.setDate(ws.getDate() - dd);
+     return ws;
+   };
+
+   // Determine the earliest week start among the generated days to compute relative week number
+   const startOfTodayWeek = getWeekStart(new Date(now));
+   const earliestDay = new Date(getDayStart(now).getTime() - (nDays - 1) * 24 * 60 * 60 * 1000);
+   const startOfEarliestWeek = getWeekStart(earliestDay);
+   const weeksSpan = Math.max(1, Math.round((startOfTodayWeek - startOfEarliestWeek) / (7 * 24 * 60 * 60 * 1000)));
+
    for (let dayOffset = nDays - 1; dayOffset >= 0; dayOffset--) {
      const daySeedBase = 1000 + dayOffset * 31;
      const dayDate = new Date(getDayStart(now).getTime() - dayOffset * 24 * 60 * 60 * 1000);
      const weekday = dayDate.getDay();
      const factor = weekdayWeights[weekday];
- 
-     const baseMin = 10, baseMax = 40;
-     const minToday = Math.max(8, Math.floor(baseMin * factor));
-     const maxToday = Math.max(minToday + 2, Math.floor(baseMax * factor));
+
+     // Weekly multiplier to create upward trend (older weeks smaller, recent weeks larger)
+     const weekIndexFromStart = Math.round((getWeekStart(dayDate) - startOfEarliestWeek) / (7 * 24 * 60 * 60 * 1000)); // 0..weeksSpan
+     const weeklyGrowthMultiplier = 1 + weekIndexFromStart * 0.07; // ~7% increase per week
+
+     // Scale daily session count with weekday factor and weekly growth
+     const baseMin = 8, baseMax = 32;
+     const minToday = Math.max(6, Math.floor(baseMin * factor * weeklyGrowthMultiplier));
+     const maxToday = Math.max(minToday + 2, Math.floor(baseMax * factor * weeklyGrowthMultiplier));
      const countToday = minToday + Math.floor(seededRandom(daySeedBase) * (maxToday - minToday + 1));
- 
+
      for (let i = 0; i < countToday; i++) {
        const sessionSeed = daySeedBase + i * 7;
- 
+
        const user = USERS[Math.floor(seededRandom(sessionSeed + 1) * USERS.length)];
        const sessionType = pickWeighted(SESSION_TYPES, [0.9, 1.6, 1.4, 0.9, 0.6], sessionSeed + 2);
        const agentsUsed = AGENTS_BY_TYPE[sessionType];
        const featuresUsed = pickSome(FEATURES_POOL, 1, 4, sessionSeed + 3);
- 
+
+       // Token usage with weekly growth multiplier
        const typeBaseTokens = { Planning: 7000, CodeWriting: 14000, Testing: 12000, BugFixing: 11000, Documentation: 6000 }[sessionType];
        const tokenJitter = 0.7 + seededRandom(sessionSeed + 4) * 0.8; // 0.7..1.5
-       const tokenUsage = Math.round(typeBaseTokens * tokenJitter * (1 + (featuresUsed.length - 1) * 0.08));
- 
+       const tokenUsage = Math.round(typeBaseTokens * tokenJitter * (1 + (featuresUsed.length - 1) * 0.08) * (0.9 + weeklyGrowthMultiplier * 0.4));
+
+       // Duration with slight weekly growth multiplier
        const baseDur = { Planning: 30, CodeWriting: 50, Testing: 60, BugFixing: 45, Documentation: 25 }[sessionType];
        const durVar = Math.floor(seededRandom(sessionSeed + 5) * 30) - 15; // -15..+14
-       const duration = Math.max(10, Math.min(95, baseDur + durVar));
- 
+       const duration = Math.max(10, Math.min(110, Math.round((baseDur + durVar) * (0.95 + weeklyGrowthMultiplier * 0.1))));
+
        const projectId = PROJECTS[Math.floor(seededRandom(sessionSeed + 6) * PROJECTS.length)];
- 
+
        const startHourBase = pickWeighted([9, 10, 11, 13, 14, 15, 16, 19, 21], [0.9, 1.1, 1.2, 1.1, 1.0, 0.9, 0.8, 0.5, 0.3], sessionSeed + 7);
        const minute = Math.floor(seededRandom(sessionSeed + 8) * 60);
        const start = new Date(dayDate);
        start.setHours(startHourBase, minute, 0, 0);
- 
+
        const outputs = (() => {
          const docs = Math.max(0, Math.round((sessionType === "Documentation" || sessionType === "Planning" ? 2 : 0.5) * seededRandom(sessionSeed + 9) * 3));
          const files = Math.max(0, Math.round((sessionType === "CodeWriting" || sessionType === "BugFixing" ? 6 : 2) * seededRandom(sessionSeed + 10) * 3));
@@ -143,7 +165,7 @@
            prsCreated: prs
          };
        })();
- 
+
        sessions.push({
          userId: user.userId,
          username: user.username,
@@ -159,7 +181,7 @@
        });
      }
    }
- 
+
    sessions.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
    return sessions;
  }

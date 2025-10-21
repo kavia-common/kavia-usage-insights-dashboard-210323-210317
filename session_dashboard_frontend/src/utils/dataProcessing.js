@@ -465,3 +465,65 @@ export const getTopFeaturesWeeklySeries = (sessions, top = 5, weeks = 8) => {
 
   return { series, keys: topFeatures };
 };
+
+/**
+ * PUBLIC_INTERFACE
+ * getWeeklyTrendSeriesByUser
+ * Returns multi-series weekly session counts for top N users (by overall sessions).
+ *
+ * @param {Array<Object>} sessions - Session array
+ * @param {number} topN - number of top users to include
+ * @param {number} weeks - number of weeks to include (default 8)
+ * @returns {{series: Array<Object>, keys: string[]}} data points keyed by weekStart and userId/username series
+ */
+export const getWeeklyTrendSeriesByUser = (sessions, topN = 5, weeks = 8) => {
+  if (!sessions || !Array.isArray(sessions)) return { series: [], keys: [] };
+
+  // Aggregate total sessions by userId
+  const totalsByUser = {};
+  const nameByUser = {};
+  sessions.forEach(s => {
+    totalsByUser[s.userId] = (totalsByUser[s.userId] || 0) + 1;
+    if (s.username) nameByUser[s.userId] = s.username;
+  });
+
+  // Select top N userIds by sessions
+  const topUsers = Object.entries(totalsByUser)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topN)
+    .map(([userId]) => userId);
+
+  if (topUsers.length === 0) return { series: [], keys: [] };
+
+  const base = getWeeklyTrendSeries(sessions, weeks);
+  const byWeekUser = {};
+  base.forEach(w => { byWeekUser[w.weekStart] = Object.fromEntries(topUsers.map(u => [u, 0])); });
+
+  // Assign sessions to weekStart and count by userId
+  sessions.forEach(s => {
+    const d = new Date(s.startTime);
+    const ws = new Date(d);
+    ws.setHours(0, 0, 0, 0);
+    const dd = (ws.getDay() + 6) % 7;
+    ws.setDate(ws.getDate() - dd);
+    const iso = ws.toISOString().split('T')[0];
+    if (byWeekUser[iso] && byWeekUser[iso][s.userId] !== undefined) {
+      byWeekUser[iso][s.userId] += 1;
+    }
+  });
+
+  // Build series mapping keys by display name if available for legend readability
+  const keyMap = Object.fromEntries(topUsers.map(u => [u, nameByUser[u] || u]));
+  const keys = topUsers.map(u => keyMap[u]);
+
+  const series = base.map(w => {
+    const row = { weekStart: w.weekStart, label: w.label };
+    topUsers.forEach(u => {
+      const displayKey = keyMap[u];
+      row[displayKey] = byWeekUser[w.weekStart][u] || 0;
+    });
+    return row;
+  });
+
+  return { series, keys };
+};
