@@ -34,6 +34,7 @@ const Sidebar = ({ currentView, onViewChange }) => {
     { id: 'features', label: 'Most/Least Used Features', icon: '🎯' },
     { id: 'teams', label: 'Usage by Team', icon: '👥' },
     { id: 'users', label: 'Usage by User', icon: '👤' },
+    { id: 'success', label: 'Success Tracking', icon: '✅' },
     { id: 'audit', label: 'Audit Trail', icon: '📋' }
   ];
 

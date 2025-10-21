@@ -166,6 +166,38 @@
          };
        })();
 
+       // Derive success 'results' fields with mild weekly growth and jitter
+       const growth = 0.9 + weeklyGrowthMultiplier * 0.35; // bounded gentle growth
+       const jitter = (seed) => 0.8 + seededRandom(seed) * 0.6; // 0.8..1.4
+
+       const baseLoc = sessionType === "CodeWriting" ? 280 : sessionType === "BugFixing" ? 140 : 60;
+       const linesOfCodeGenerated = Math.round(baseLoc * (1 + (featuresUsed.length - 1) * 0.12) * jitter(sessionSeed + 12) * growth);
+
+       // filesUpdated counts combine modeled results and outputs files as separate signal
+       const filesUpdated = Math.max(0, Math.round((sessionType === "CodeWriting" || sessionType === "BugFixing" ? 5 : 2) * jitter(sessionSeed + 13) * growth)) + outputs.codeFilesUpdated;
+
+       const documentsGenerated = Math.max(0, Math.round((sessionType === "Documentation" || sessionType === "Planning" ? 2.5 : 0.7) * jitter(sessionSeed + 14) * growth)) + outputs.documentsGenerated;
+
+       const sessionsMerged = Math.max(0, Math.round((sessionType === "Planning" ? 0.6 : 0.3) * jitter(sessionSeed + 15) * growth));
+       const prsCreatedRes = Math.max(0, Math.round((sessionType === "CodeWriting" || sessionType === "BugFixing" ? 0.9 : 0.2) * jitter(sessionSeed + 16) * growth)) + outputs.prsCreated;
+
+       const questionsAnswered = Math.max(0, Math.round((sessionType === "Testing" || sessionType === "Documentation" ? 3.0 : 1.2) * jitter(sessionSeed + 17) * growth));
+       const repositoriesIngested = Math.max(0, Math.round((sessionType === "Planning" || sessionType === "Architecture" ? 0.5 : 0.2) * jitter(sessionSeed + 18) * growth * (featuresUsed.includes("Architecture Planning") ? 1.6 : 1)));
+       const projectsCreated = Math.max(0, Math.round((sessionType === "Planning" ? 0.4 : 0.1) * jitter(sessionSeed + 19) * growth));
+       const nodesCreated = Math.max(0, Math.round((sessionType === "Planning" || sessionType === "Architecture" ? 10 : 4) * (1 + (featuresUsed.length - 1) * 0.1) * jitter(sessionSeed + 20) * growth));
+
+       const results = {
+         linesOfCodeGenerated,
+         filesUpdated,
+         documentsGenerated,
+         sessionsMerged,
+         prsCreated: prsCreatedRes,
+         questionsAnswered,
+         repositoriesIngested,
+         projectsCreated,
+         nodesCreated
+       };
+
        sessions.push({
          userId: user.userId,
          username: user.username,
@@ -177,6 +209,7 @@
          startTime: start.toISOString(),
          duration,
          outputs,
+         results,
          team: user.team
        });
      }

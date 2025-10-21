@@ -56,6 +56,16 @@
   background: rgba(59, 130, 246, 0.08);
 }
 
+.metric-card .toggle-btn {
+  margin-top: 6px;
+  border: 1px solid #e5e7eb;
+  color: #0e7490;
+}
+
+.metric-card .toggle-btn.active {
+  border-color: rgba(6, 182, 212, 0.4);
+}
+
 .toggle-btn.active {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%);
   color: #0e7490;

@@ -15,6 +15,7 @@ import FeatureUsageTrends from './FeatureUsageTrends';
 import MostLeastUsedFeatures from './MostLeastUsedFeatures';
 import UsageByTeam from './UsageByTeam';
 import UsageByUser from './UsageByUser';
+import { SuccessTracking } from './';
 import AuditTrail from './AuditTrail';
 import mockSessionData from '../data/mockSessionData';
 import { filterSessions } from '../utils/dataProcessing';
@@ -74,6 +75,9 @@ const Dashboard = () => {
         return <UsageByTeam data={filteredData} />;
       case 'users':
         return <UsageByUser data={filteredData} />;
+      case 'success':
+      case 'successTracking':
+        return <SuccessTracking data={filteredData} />;
       case 'audit':
         return <AuditTrail />;
       default:
