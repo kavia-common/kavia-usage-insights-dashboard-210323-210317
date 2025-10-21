@@ -8,8 +8,12 @@
 // ============================================================================
 
 import React from 'react';
-import { getMostUsedFeatures, getLeastUsedFeatures } from '../utils/dataProcessing';
+import { getMostUsedFeatures, getLeastUsedFeatures, getTopFeaturesWeeklySeries } from '../utils/dataProcessing';
 import '../styles/Visualizations.css';
+import ChartCard from './ChartCard';
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid
+} from 'recharts';
 
 // PUBLIC_INTERFACE
 /**
@@ -28,12 +32,53 @@ const MostLeastUsedFeatures = ({ data }) => {
 
   const maxCount = mostUsed.length > 0 ? mostUsed[0].count : 1;
 
+  const { series: featureSeries, keys: featureKeys } = getTopFeaturesWeeklySeries(data, 5, 8);
+
   return (
     <div className="visualization-container">
       <div className="viz-header">
         <h2 className="viz-title">Feature Usage Analysis</h2>
         <p className="viz-subtitle">Most and least frequently used features</p>
       </div>
+
+      <ChartCard
+        title="Weekly Trends - Top 5 Features"
+        subtitle="Line chart of weekly session counts by feature for the last 8 weeks."
+      >
+        {featureSeries && featureSeries.length > 0 && featureKeys.length > 0 ? (
+          <div className="chart-responsive" data-testid="feature-trend-chart">
+            <ResponsiveContainer>
+              <LineChart data={featureSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="4 4" />
+                <XAxis dataKey="weekStart" tick={{ fill: '#64748b', fontSize: 12 }} />
+                <YAxis allowDecimals={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 8 }}
+                  labelStyle={{ color: '#111827', fontWeight: 600 }}
+                />
+                <Legend />
+                {featureKeys.map((f, idx) => {
+                  const palette = ['#3b82f6', '#06b6d4', '#64748b', '#10b981', '#f59e0b', '#ef4444'];
+                  return (
+                    <Line
+                      key={f}
+                      type="monotone"
+                      dataKey={f}
+                      name={f}
+                      stroke={palette[idx % palette.length]}
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  );
+                })}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div role="note" style={{ color: '#64748b' }}>No data available for feature trends.</div>
+        )}
+      </ChartCard>
 
       <div className="features-layout">
         {/* Most Used Features */}

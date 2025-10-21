@@ -373,3 +373,95 @@ export const getWeeklyTrendSeries = (sessions, weeks = 4) => {
 
   return series;
 };
+
+/**
+ * PUBLIC_INTERFACE
+ * getTeamWeeklySeries
+ * Returns multi-series weekly session counts per team for the last N weeks.
+ *
+ * @param {Array<Object>} sessions
+ * @param {number} weeks
+ * @returns {{series: Array<Object>, keys: string[]}} An array of data points with weekStart and team counts, and list of team names.
+ */
+export const getTeamWeeklySeries = (sessions, weeks = 8) => {
+  if (!sessions || !Array.isArray(sessions)) return { series: [], keys: [] };
+
+  const base = getWeeklyTrendSeries(sessions, weeks); // provides weekStart list
+  // Discover teams present
+  const teams = Array.from(new Set((sessions || []).map(s => s.team))).filter(Boolean).sort();
+
+  // Map of weekStart -> counts per team
+  const byWeekTeam = {};
+  base.forEach(w => { byWeekTeam[w.weekStart] = Object.fromEntries(teams.map(t => [t, 0])); });
+
+  // Assign sessions to weekStart and count by team
+  sessions.forEach(s => {
+    const d = new Date(s.startTime);
+    const ws = new Date(d);
+    ws.setHours(0, 0, 0, 0);
+    const dd = (ws.getDay() + 6) % 7;
+    ws.setDate(ws.getDate() - dd);
+    const iso = ws.toISOString().split('T')[0];
+    if (byWeekTeam[iso] && s.team) {
+      byWeekTeam[iso][s.team] = (byWeekTeam[iso][s.team] || 0) + 1;
+    }
+  });
+
+  const series = base.map(w => ({
+    weekStart: w.weekStart,
+    label: w.label,
+    ...byWeekTeam[w.weekStart]
+  }));
+
+  return { series, keys: teams };
+};
+
+/**
+ * PUBLIC_INTERFACE
+ * getTopFeaturesWeeklySeries
+ * Returns multi-series weekly session counts for top N features (by overall usage).
+ *
+ * @param {Array<Object>} sessions
+ * @param {number} top
+ * @param {number} weeks
+ * @returns {{series: Array<Object>, keys: string[]}}
+ */
+export const getTopFeaturesWeeklySeries = (sessions, top = 5, weeks = 8) => {
+  if (!sessions || !Array.isArray(sessions)) return { series: [], keys: [] };
+
+  // Determine top N features overall
+  const usage = calculateFeatureUsage(sessions);
+  const topFeatures = Object.entries(usage)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, top)
+    .map(([feature]) => feature);
+
+  const base = getWeeklyTrendSeries(sessions, weeks);
+  const byWeekFeature = {};
+  base.forEach(w => { byWeekFeature[w.weekStart] = Object.fromEntries(topFeatures.map(f => [f, 0])); });
+
+  sessions.forEach(s => {
+    const d = new Date(s.startTime);
+    const ws = new Date(d);
+    ws.setHours(0, 0, 0, 0);
+    const dd = (ws.getDay() + 6) % 7;
+    ws.setDate(ws.getDate() - dd);
+    const iso = ws.toISOString().split('T')[0];
+
+    if (byWeekFeature[iso] && Array.isArray(s.featuresUsed)) {
+      s.featuresUsed.forEach(f => {
+        if (byWeekFeature[iso][f] !== undefined) {
+          byWeekFeature[iso][f] += 1;
+        }
+      });
+    }
+  });
+
+  const series = base.map(w => ({
+    weekStart: w.weekStart,
+    label: w.label,
+    ...byWeekFeature[w.weekStart]
+  }));
+
+  return { series, keys: topFeatures };
+};

@@ -8,8 +8,12 @@
 // ============================================================================
 
 import React from 'react';
-import { calculateUsageByTeam } from '../utils/dataProcessing';
+import { calculateUsageByTeam, getTeamWeeklySeries } from '../utils/dataProcessing';
 import '../styles/Visualizations.css';
+import ChartCard from './ChartCard';
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid
+} from 'recharts';
 
 // PUBLIC_INTERFACE
 /**
@@ -30,12 +34,53 @@ const UsageByTeam = ({ data }) => {
 
   const maxSessions = teams.length > 0 ? teamStats[teams[0]].sessionCount : 1;
 
+  const { series: weeklySeries, keys: teamKeys } = getTeamWeeklySeries(data, 8);
+
   return (
     <div className="visualization-container">
       <div className="viz-header">
         <h2 className="viz-title">Usage by Team</h2>
         <p className="viz-subtitle">Session activity and metrics per team</p>
       </div>
+
+      <ChartCard
+        title="Weekly Team Usage (Last 8 Weeks)"
+        subtitle="Line chart of sessions per team. Hover for details."
+      >
+        {weeklySeries && weeklySeries.length > 0 && teamKeys.length > 0 ? (
+          <div className="chart-responsive" data-testid="team-trend-chart">
+            <ResponsiveContainer>
+              <LineChart data={weeklySeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="4 4" />
+                <XAxis dataKey="weekStart" tick={{ fill: '#64748b', fontSize: 12 }} />
+                <YAxis allowDecimals={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 8 }}
+                  labelStyle={{ color: '#111827', fontWeight: 600 }}
+                />
+                <Legend />
+                {teamKeys.map((t, idx) => {
+                  const palette = ['#3b82f6', '#06b6d4', '#64748b', '#10b981', '#f59e0b', '#ef4444'];
+                  return (
+                    <Line
+                      key={t}
+                      type="monotone"
+                      dataKey={t}
+                      name={t}
+                      stroke={palette[idx % palette.length]}
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  );
+                })}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div role="note" style={{ color: '#64748b' }}>No data available for weekly team trends.</div>
+        )}
+      </ChartCard>
 
       {/* Team Cards */}
       <div className="team-grid">
