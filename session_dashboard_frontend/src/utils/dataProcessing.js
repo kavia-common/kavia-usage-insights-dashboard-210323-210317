@@ -192,7 +192,6 @@ export const calculateUsageByUser = (sessions) => {
   return Object.values(userStats).sort((a, b) => b.sessionCount - a.sessionCount);
 };
 
-// PUBLIC_INTERFACE
 /**
  * Calculate week-over-week trends
  * 
