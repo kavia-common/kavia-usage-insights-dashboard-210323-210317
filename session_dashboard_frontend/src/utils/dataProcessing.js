@@ -272,11 +272,16 @@ export const groupSessionsByDate = (sessions, groupBy = 'day') => {
       case 'day':
         key = date.toISOString().split('T')[0];
         break;
-      case 'week':
+      case 'week': {
         const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - date.getDay());
+        // Normalize to start of day
+        weekStart.setHours(0, 0, 0, 0);
+        // Set to Monday as start of week for consistency (Ocean Professional locale choice)
+        const day = (weekStart.getDay() + 6) % 7; // Monday=0
+        weekStart.setDate(weekStart.getDate() - day);
         key = weekStart.toISOString().split('T')[0];
         break;
+      }
       case 'month':
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         break;
@@ -291,4 +296,80 @@ export const groupSessionsByDate = (sessions, groupBy = 'day') => {
   });
 
   return grouped;
+};
+
+/**
+ * PUBLIC_INTERFACE
+ * getWeeklyTrendSeries
+ * Build a weekly aggregated series over the last `weeks` weeks (default 4).
+ * Each item contains weekStart (ISO string), label ("Week of Mon YYYY-MM-DD"),
+ * and aggregated totals: sessions, tokens, duration.
+ *
+ * @param {Array<Object>} sessions - Session array
+ * @param {number} weeks - Number of weeks to include (default 4)
+ * @returns {Array<{weekStart: string, label: string, sessions: number, tokens: number, duration: number}>}
+ */
+export const getWeeklyTrendSeries = (sessions, weeks = 4) => {
+  if (!sessions || !Array.isArray(sessions) || weeks <= 0) return [];
+
+  // Determine Monday of current week
+  const now = new Date();
+  const current = new Date(now);
+  current.setHours(0, 0, 0, 0);
+  const day = (current.getDay() + 6) % 7; // Monday=0
+  current.setDate(current.getDate() - day);
+
+  // Create week start boundaries for the last N weeks (oldest -> newest)
+  const weekStarts = [];
+  for (let i = weeks - 1; i >= 0; i--) {
+    const ws = new Date(current);
+    ws.setDate(current.getDate() - i * 7);
+    weekStarts.push(ws);
+  }
+
+  // Prepare buckets keyed by ISO date
+  const buckets = {};
+  weekStarts.forEach(ws => {
+    const iso = ws.toISOString().split('T')[0];
+    buckets[iso] = [];
+  });
+
+  // Assign sessions to appropriate week bucket (by Monday start)
+  sessions.forEach(s => {
+    const d = new Date(s.startTime);
+    const ws = new Date(d);
+    ws.setHours(0, 0, 0, 0);
+    const dd = (ws.getDay() + 6) % 7;
+    ws.setDate(ws.getDate() - dd);
+    const iso = ws.toISOString().split('T')[0];
+    if (buckets[iso]) {
+      buckets[iso].push(s);
+    }
+  });
+
+  // Build series
+  const series = weekStarts.map(ws => {
+    const iso = ws.toISOString().split('T')[0];
+    const bucket = buckets[iso] || [];
+    const sessionsCount = bucket.length;
+    const tokens = bucket.reduce((sum, s) => sum + (s.tokenUsage || 0), 0);
+    const duration = bucket.reduce((sum, s) => sum + (s.duration || 0), 0);
+
+    const label = `Week of ${ws.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })}`;
+
+    return {
+      weekStart: iso,
+      label,
+      sessions: sessionsCount,
+      tokens,
+      duration
+    };
+  });
+
+  return series;
 };

@@ -7,8 +7,8 @@
 // Risk Level: LOW
 // ============================================================================
 
-import React from 'react';
-import { calculateWeekOverWeekTrends, groupSessionsByDate } from '../utils/dataProcessing';
+import React, { useMemo, useState } from 'react';
+import { calculateWeekOverWeekTrends, groupSessionsByDate, getWeeklyTrendSeries } from '../utils/dataProcessing';
 import '../styles/Visualizations.css';
 
 // PUBLIC_INTERFACE
@@ -23,8 +23,9 @@ import '../styles/Visualizations.css';
  * GxP Critical: NO - Visualization component
  */
 const FeatureUsageTrends = ({ data }) => {
+  const [viewMode, setViewMode] = useState('daily'); // 'daily' | 'weekly'
   const trends = calculateWeekOverWeekTrends(data);
-  const groupedByDay = groupSessionsByDate(data, 'day');
+  const groupedByDay = useMemo(() => groupSessionsByDate(data, 'day'), [data]);
 
   // PUBLIC_INTERFACE
   /**
@@ -41,14 +42,33 @@ const FeatureUsageTrends = ({ data }) => {
   const durationChange = formatChange(trends.trend.durationChange);
 
   // Get last 7 days for chart
-  const last7Days = Object.keys(groupedByDay)
-    .sort()
-    .slice(-7);
+  const last7Days = useMemo(() => Object.keys(groupedByDay).sort().slice(-7), [groupedByDay]);
+
+  // Build 4-week weekly series
+  const weeklySeries = useMemo(() => getWeeklyTrendSeries(data, 4), [data]);
 
   return (
     <div className="visualization-container">
       <div className="viz-header">
         <h2 className="viz-title">Feature Usage Trends</h2>
+        <div className="viz-toggle" role="tablist" aria-label="Trend view toggle">
+          <button
+            role="tab"
+            aria-selected={viewMode === 'daily'}
+            className={`toggle-btn ${viewMode === 'daily' ? 'active' : ''}`}
+            onClick={() => setViewMode('daily')}
+          >
+            Last 7 Days
+          </button>
+          <button
+            role="tab"
+            aria-selected={viewMode === 'weekly'}
+            className={`toggle-btn ${viewMode === 'weekly' ? 'active' : ''}`}
+            onClick={() => setViewMode('weekly')}
+          >
+            4-Week Weekly
+          </button>
+        </div>
         <p className="viz-subtitle">Week-over-week comparison</p>
       </div>
 
@@ -88,33 +108,75 @@ const FeatureUsageTrends = ({ data }) => {
         </div>
       </div>
 
-      {/* Daily Sessions Chart */}
-      <div className="chart-container">
-        <h3 className="chart-title">Sessions per Day (Last 7 Days)</h3>
-        <div className="bar-chart">
-          {last7Days.map(date => {
-            const sessions = groupedByDay[date] || [];
-            const count = sessions.length;
-            const maxCount = Math.max(...last7Days.map(d => (groupedByDay[d] || []).length));
-            const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
+      {/* Trend Chart */}
+      {viewMode === 'daily' ? (
+        <div className="chart-container">
+          <h3 className="chart-title">Sessions per Day (Last 7 Days)</h3>
+          <div className="bar-chart">
+            {last7Days.map(date => {
+              const sessions = groupedByDay[date] || [];
+              const count = sessions.length;
+              const maxCount = Math.max(...last7Days.map(d => (groupedByDay[d] || []).length));
+              const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
 
-            return (
-              <div key={date} className="bar-item">
-                <div className="bar-wrapper">
-                  <div 
-                    className="bar" 
-                    style={{ height: `${height}%` }}
-                    title={`${count} sessions`}
-                  >
-                    <span className="bar-label">{count}</span>
+              const dayLabel = new Date(date).toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: '2-digit',
+                day: '2-digit'
+              });
+
+              return (
+                <div key={date} className="bar-item">
+                  <div className="bar-wrapper">
+                    <div
+                      className="bar"
+                      style={{ height: `${height}%` }}
+                      title={`${dayLabel} • ${count} sessions`}
+                    >
+                      <span className="bar-label">{count}</span>
+                    </div>
+                  </div>
+                  <div className="bar-date">
+                    {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </div>
                 </div>
-                <div className="bar-date">{new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="chart-container">
+          <h3 className="chart-title">Weekly Trend (Last 4 Weeks)</h3>
+          <div className="bar-chart">
+            {weeklySeries.map(week => {
+              const count = week.sessions;
+              const maxCount = Math.max(...weeklySeries.map(w => w.sessions));
+              const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
+              const tooltip = `${week.label}\nSessions: ${count}\nTokens: ${week.tokens.toLocaleString()}\nDuration: ${week.duration} min`;
+
+              return (
+                <div key={week.weekStart} className="bar-item">
+                  <div className="bar-wrapper">
+                    <div
+                      className="bar"
+                      style={{ height: `${height}%` }}
+                      title={tooltip}
+                    >
+                      <span className="bar-label">{count}</span>
+                    </div>
+                  </div>
+                  <div className="bar-date">
+                    {`Week of ${new Date(week.weekStart).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric'
+                    })}`}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Feature Usage Comparison */}
       <div className="feature-comparison">
