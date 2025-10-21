@@ -1,47 +1,56 @@
-import React, { useState, useEffect } from 'react';
-import logo from './logo.svg';
+// ============================================================================
+// REQUIREMENT TRACEABILITY
+// ============================================================================
+// Requirement ID: REQ-001
+// User Story: Main application component with authentication and routing
+// GxP Impact: YES - Routes require authentication
+// Risk Level: HIGH
+// ============================================================================
+
+import React from 'react';
+import { AuditProvider } from './context/AuditContext';
+import { AuthProvider } from './context/AuthContext';
+import Login from './components/Login';
+import Dashboard from './components/Dashboard';
+import { useAuth } from './context/AuthContext';
 import './App.css';
 
 // PUBLIC_INTERFACE
+/**
+ * Protected Route Component
+ * Only renders children if user is authenticated
+ * 
+ * @component
+ * @param {Object} props - Component props
+ * @param {React.ReactNode} props.children - Child components to render when authenticated
+ * 
+ * GxP Critical: YES - Ensures only authenticated users access dashboard
+ */
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? children : <Login />;
+};
+
+// PUBLIC_INTERFACE
+/**
+ * Main Application Component
+ * Wraps app with AuditContext and AuthContext providers
+ * Implements protected routing for dashboard
+ * 
+ * @component
+ * 
+ * GxP Critical: YES - Root authentication and audit context
+ */
 function App() {
-  const [theme, setTheme] = useState('light');
-
-  // Effect to apply theme to document element
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-
-  // PUBLIC_INTERFACE
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-  };
-
   return (
     <div className="App">
-      <header className="App-header">
-        <button 
-          className="theme-toggle" 
-          onClick={toggleTheme}
-          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-        >
-          {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-        </button>
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <p>
-          Current theme: <strong>{theme}</strong>
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <AuditProvider>
+        <AuthProvider>
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        </AuthProvider>
+      </AuditProvider>
     </div>
   );
 }
